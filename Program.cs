@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using Microsoft.Samples.Debugging.CorDebug;
 
 namespace cpu_analyzer {
 
@@ -208,8 +209,14 @@ namespace cpu_analyzer {
 
 
             MDbgProcess attached = null;
-            try {
-                attached = debugger.Attach(pid);
+            try
+            {
+                var attachVersion = FindAttachVersion(pid);
+                if (attachVersion == null)
+                {
+                    return;
+                }
+                attached = debugger.Attach(pid, attachVersion);
             } catch(Exception e) {
                 Console.WriteLine("Error: failed to attach to process: " + e);
                 return;
@@ -319,7 +326,27 @@ namespace cpu_analyzer {
                 Console.WriteLine("------------------------------------");
 
             }
-                  
+        }
+
+        private static string FindAttachVersion(int pid)
+        {
+            var attachVersion = MdbgVersionPolicy.GetDefaultAttachVersion(pid);
+            var installedVersions = new CLRMetaHost().EnumerateInstalledRuntimes().Select(r => r.GetVersionString()).ToList();
+            if (installedVersions.Contains(attachVersion))
+            {
+                return attachVersion;
+            }
+
+            var matchingVersion = installedVersions.Find(v => attachVersion.Contains(v.Replace("v", "")) || v.Contains(attachVersion.Replace("v", "")));
+            if (matchingVersion != null)
+            {
+                return matchingVersion;
+            }
+
+            Console.WriteLine("Error: could not find installed runtime attach version.");
+            Console.WriteLine("  Default attach version: " + attachVersion);
+            Console.WriteLine("  Installed versions: " + string.Join(", ", installedVersions));
+            return null;
         }
     }
 }
