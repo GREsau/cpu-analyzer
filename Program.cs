@@ -20,7 +20,7 @@ namespace cpu_analyzer {
         public List<string> CommonStack { get; set; }
 
         public static ThreadSnapshotStats FromSnapshots(IEnumerable<ThreadSnapshot> snapshots) {
-            ThreadSnapshotStats stats = new ThreadSnapshotStats();
+            var stats = new ThreadSnapshotStats();
 
             stats.ThreadId = snapshots.First().Id;
             stats.TotalKernelTime = snapshots.Last().KernelTime - snapshots.First().KernelTime;
@@ -76,9 +76,9 @@ namespace cpu_analyzer {
         {
             get 
             {
-                List<Tuple<Guid, string>> rval = new List<Tuple<Guid, string>>();
+                var rval = new List<Tuple<Guid, string>>();
 
-                List<string> trace = new List<string>();
+                var trace = new List<string>();
 
                 foreach (var item in ((IEnumerable<string>)StackTrace).Reverse())
                 {
@@ -103,7 +103,7 @@ namespace cpu_analyzer {
 
 			try
 			{
-				foreach (MDbgFrame frame in thread.Frames)
+				foreach (var frame in thread.Frames)
 				{
 					try
 					{
@@ -124,7 +124,7 @@ namespace cpu_analyzer {
         }
     }
 
-    class Program {
+    static class Program {
 
         enum ParseState { 
             Unknown, Samples, Interval
@@ -148,8 +148,8 @@ namespace cpu_analyzer {
                 return;
             }
 
-            int samples = 10;
-            int sampleInterval = 1000;
+            var samples = 10;
+            var sampleInterval = 1000;
 
 
             var state = ParseState.Unknown;
@@ -166,14 +166,14 @@ namespace cpu_analyzer {
                         }
                         break;
                     case ParseState.Samples:
-                        if (!Int32.TryParse(arg, out samples)) {
+                        if (!int.TryParse(arg, out samples)) {
                             Usage();
                             return;
                         }
                         state = ParseState.Unknown;
                         break;
                     case ParseState.Interval:
-                        if (!Int32.TryParse(arg, out sampleInterval)) {
+                        if (!int.TryParse(arg, out sampleInterval)) {
                             Usage();
                             return;
                         }
@@ -184,17 +184,17 @@ namespace cpu_analyzer {
                 }
             }
 
-            string pidOrProcess = args[0]; 
+            var pidOrProcess = args[0]; 
 
           
             var stats = new Dictionary<int, List<ThreadSnapshot>>();
             var debugger = new MDbgEngine();
-            int pid = -1; 
+            var pid = -1; 
 
             var processes = Process.GetProcessesByName(pidOrProcess);
             if (processes.Length < 1) {
                 try {
-                    pid = Int32.Parse(pidOrProcess);
+                    pid = int.Parse(pidOrProcess);
                 } catch {
                     Console.WriteLine("Error: could not find any processes with that name or pid");
                     return;
@@ -217,7 +217,7 @@ namespace cpu_analyzer {
 
             attached.Go().WaitOne();
 
-            for (int i = 0; i < samples; i++) {
+            for (var i = 0; i < samples; i++) {
 
                 foreach (MDbgThread thread in attached.Threads) {
                     var snapshot = ThreadSnapshot.GetThreadSnapshot(thread);
@@ -240,15 +240,15 @@ namespace cpu_analyzer {
             // perform basic analysis to see which are the top N stack traces observed, 
             //  weighted on cost 
 
-            Dictionary<Guid, long> costs = new Dictionary<Guid,long>();
-            Dictionary<Guid, string> stacks = new Dictionary<Guid, string>();
+            var costs = new Dictionary<Guid,long>();
+            var stacks = new Dictionary<Guid, string>();
 
             foreach (var stat in stats.Values)
             {
                 long prevTime = -1;
                 foreach (var snapshot in stat)
                 {
-                    long time = snapshot.KernelTime + snapshot.UserTime;
+                    var time = snapshot.KernelTime + snapshot.UserTime;
                     if (prevTime != -1)
                     {
                         foreach (var tuple in snapshot.StackHashes)
@@ -272,7 +272,7 @@ namespace cpu_analyzer {
             Console.WriteLine("------------------------------------");
             foreach (var group in costs.OrderByDescending(p => p.Value).GroupBy(p => p.Value))
             {
-                List<string> stacksToShow = new List<string>();
+                var stacksToShow = new List<string>();
 
                 foreach (var pair in group.OrderByDescending(p => stacks[p.Key].Length))
                 {
