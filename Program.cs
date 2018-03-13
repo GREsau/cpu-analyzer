@@ -9,6 +9,7 @@ using System.Threading;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Microsoft.Samples.Debugging.CorDebug;
+using Microsoft.Web.Administration;
 
 namespace cpu_analyzer {
 
@@ -132,7 +133,7 @@ namespace cpu_analyzer {
         }
 
         static void Usage() {
-            Console.WriteLine("Usage: cpu-analyzer ProcessName|PID [options]");
+            Console.WriteLine("Usage: cpu-analyzer AppPoolName|ProcessName|PID [options]");
             Console.WriteLine();
             Console.WriteLine("  /S     indicates how many samples to take (default:10)");
             Console.WriteLine("  /I     the interval between samples in milliseconds (default:1000)");
@@ -190,33 +191,22 @@ namespace cpu_analyzer {
           
             var stats = new Dictionary<int, List<ThreadSnapshot>>();
             var debugger = new MDbgEngine();
-            var pid = -1; 
-
-            var processes = Process.GetProcessesByName(pidOrProcess);
-            if (processes.Length < 1) {
-                try {
-                    pid = int.Parse(pidOrProcess);
-                } catch {
-                    Console.WriteLine("Error: could not find any processes with that name or pid");
-                    return;
-                }
-            } else {
-                if (processes.Length > 1) {
-                    Console.WriteLine("Warning: multiple processes share that name, attaching to the first"); 
-                }
-                pid = processes[0].Id;
+            var pid = GetPid(pidOrProcess);
+            if (!pid.HasValue)
+            {
+                return;
             }
-
 
             MDbgProcess attached = null;
             try
             {
-                var attachVersion = FindAttachVersion(pid);
+                var attachVersion = FindAttachVersion(pid.Value);
                 if (attachVersion == null)
                 {
                     return;
                 }
-                attached = debugger.Attach(pid, attachVersion);
+                Console.WriteLine($"Attaching to process {pid} using version {attachVersion}...");
+                attached = debugger.Attach(pid.Value, attachVersion);
             } catch(Exception e) {
                 Console.WriteLine("Error: failed to attach to process: " + e);
                 return;
@@ -325,6 +315,51 @@ namespace cpu_analyzer {
                 }
                 Console.WriteLine("------------------------------------");
 
+            }
+        }
+
+        private static int? GetPid(string pidOrProcessOrAppPool)
+        {
+            using (var serverManager = new ServerManager())
+            {
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(
+                    ap => ap.Name.Equals(pidOrProcessOrAppPool,
+                    StringComparison.OrdinalIgnoreCase));
+                if (appPool != null)
+                {
+                    if (appPool.WorkerProcesses.Count == 0)
+                    {
+                        Console.WriteLine("Error: no worker processes found for that app pool");
+                        return null;
+                    }
+                    if (appPool.WorkerProcesses.Count > 1)
+                    {
+                        Console.WriteLine("Warning: multiple worker processes for that app pool, attaching to the first");
+                    }
+                    return appPool.WorkerProcesses[0].ProcessId;
+                }
+            }
+
+            var processes = Process.GetProcessesByName(pidOrProcessOrAppPool);
+            if (processes.Length < 1)
+            {
+                try
+                {
+                    return int.Parse(pidOrProcessOrAppPool);
+                }
+                catch
+                {
+                    Console.WriteLine("Error: could not find any processes with that name or pid");
+                    return null;
+                }
+            }
+            else
+            {
+                if (processes.Length > 1)
+                {
+                    Console.WriteLine("Warning: multiple processes share that name, attaching to the first");
+                }
+                return processes[0].Id;
             }
         }
 

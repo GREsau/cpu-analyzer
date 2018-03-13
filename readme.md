@@ -1,11 +1,11 @@
 # Cpu analyzer
 Forked from Sam Saffron's code which seems abandoned, see: http://samsaffron.com/archive/2009/11/11/Diagnosing+runaway+CPU+in+a+Net+production+application
 
-All required dependencies are now added via NuGET, no need to link MS libraried.
+All required dependencies are now added via NuGET, no need to link MS libraries.
 
 Usage:
 
-`cpu-analyzer ProcessName|PID [options]`
+`cpu-analyzer AppPoolName|ProcessName|PID [options]`
 
 /S indicates how many samples to take (default:10)
 
