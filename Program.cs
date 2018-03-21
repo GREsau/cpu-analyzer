@@ -196,6 +196,7 @@ namespace cpu_analyzer {
             {
                 return;
             }
+            Console.WriteLine($"Finding version for process {pid}...");
 
             MDbgProcess attached = null;
             try
@@ -320,46 +321,53 @@ namespace cpu_analyzer {
 
         private static int? GetPid(string pidOrProcessOrAppPool)
         {
-            using (var serverManager = new ServerManager())
-            {
-                var appPool = serverManager.ApplicationPools.FirstOrDefault(
-                    ap => ap.Name.Equals(pidOrProcessOrAppPool,
-                    StringComparison.OrdinalIgnoreCase));
-                if (appPool != null)
-                {
-                    if (appPool.WorkerProcesses.Count == 0)
-                    {
-                        Console.WriteLine("Error: no worker processes found for that app pool");
-                        return null;
-                    }
-                    if (appPool.WorkerProcesses.Count > 1)
-                    {
-                        Console.WriteLine("Warning: multiple worker processes for that app pool, attaching to the first");
-                    }
-                    return appPool.WorkerProcesses[0].ProcessId;
-                }
-            }
-
             var processes = Process.GetProcessesByName(pidOrProcessOrAppPool);
-            if (processes.Length < 1)
-            {
-                try
-                {
-                    return int.Parse(pidOrProcessOrAppPool);
-                }
-                catch
-                {
-                    Console.WriteLine("Error: could not find any processes with that name or pid");
-                    return null;
-                }
-            }
-            else
+            if (processes.Length > 0)
             {
                 if (processes.Length > 1)
                 {
                     Console.WriteLine("Warning: multiple processes share that name, attaching to the first");
                 }
                 return processes[0].Id;
+            }
+
+            var appPoolPid = GetPidOfAppPool(pidOrProcessOrAppPool);
+            if (appPoolPid.HasValue)
+            {
+                return appPoolPid;
+            }
+
+            try
+            {
+                return int.Parse(pidOrProcessOrAppPool);
+            }
+            catch
+            {
+                Console.WriteLine("Error: could not find any processes with that name or pid");
+                return null;
+            }
+        }
+
+        private static int? GetPidOfAppPool(string appPoolName)
+        {
+            using (var serverManager = new ServerManager())
+            {
+                var appPool = serverManager.ApplicationPools.FirstOrDefault(
+                                ap => ap.Name.Equals(appPoolName, StringComparison.OrdinalIgnoreCase));
+                if (appPool == null)
+                {
+                    return null;
+                }
+                if (appPool.WorkerProcesses.Count == 0)
+                {
+                    Console.WriteLine("Error: no worker processes found for that app pool");
+                    return null;
+                }
+                if (appPool.WorkerProcesses.Count > 1)
+                {
+                    Console.WriteLine("Warning: multiple worker processes for that app pool, attaching to the first");
+                }
+                return appPool.WorkerProcesses[0].ProcessId;
             }
         }
 
